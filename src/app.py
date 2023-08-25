@@ -8,7 +8,7 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User
+from models import db, User, Favorites, Planet, Character
 #from models import Person
 
 app = Flask(__name__)
@@ -36,14 +36,173 @@ def handle_invalid_usage(error):
 def sitemap():
     return generate_sitemap(app)
 
-@app.route('/user', methods=['GET'])
-def handle_hello():
 
-    response_body = {
-        "msg": "Hello, this is your GET /user response "
+
+
+# GET all users
+@app.route('/user', methods=['GET'])
+def get_users():
+
+    users = User.query.all()
+    request_body = list(map(lambda x: x.serialize(), users))
+
+    return jsonify(request_body), 200
+
+
+
+# GET certain users
+@app.route('/user/<int:user_id>', methods=['GET'])
+def get_single_user(user_id):
+    user1 = User.query.get(user_id)
+    if user1 is None:
+        raise APIException("User doesn't exist", status_code=404)
+
+    user_data = {
+        'id': user1.id,
+        'username': user1.username,
+        'favorites': list(map(lambda x: x.serialize(), user1.favorites))
     }
 
-    return jsonify(response_body), 200
+    return jsonify(user_data), 200
+
+
+
+# GET users favorites
+@app.route('/users/<int:user_id>/favorites', methods=['GET'])
+def user_favorites(user_id):
+    user = User.query.get(user_id)
+    if user is None:
+        raise APIException("User doesn't exist", status_code=404)
+    
+    favorites = user.favorites_id
+    favorites_data = []
+
+    for favorite in favorites:
+        favorite_data = {
+            'id': favorite.id,
+            'name': favorite.name
+        }
+        favorites_data.append(favorite_data)
+
+    return jsonify(favorites_data), 200
+
+# GET all characters
+@app.route('/characters', methods=['GET'])
+def get_characters():
+
+    characters = Character.query.all()
+    request_body = list(map(lambda x: x.serialize(), characters))
+
+    return jsonify(request_body), 200
+
+# GET certain character
+@app.route('/character/<int:character_id>', methods=['GET'])
+def get_single_character(character_id):
+
+    character = Character.query.get(character_id)
+    if character is None:
+        raise APIException("character doesn't exist", status_code=404)
+
+    character_data = {
+        'id': character.id,
+        'name': character.name
+        
+    }
+
+    return jsonify(character_data), 200
+
+# GET all planets
+@app.route('/planets', methods=['GET'])
+def get_planets():
+
+    planets = Planet.query.all()
+    request_body = list(map(lambda x: x.serialize(), planets))
+
+    return jsonify(request_body), 200
+
+# GETT certain planet
+@app.route('/planet/<int:planet_id>', methods=['GET'])
+def get_single_planet(planet_id):
+    planet = Planet.query.get(planet_id)
+    if planet is None:
+        raise APIException("planet doesn't exist", status_code=404)
+
+    planet_data = {
+        'id': planet.id,
+        'name': planet.name,
+    }
+
+    return jsonify(planet_data), 200    
+
+
+# POST favorite planet on user
+@app.route('/favorite/planet', methods=['POST'])
+def add_favorite_planet():
+
+    request_body = request.get_json()
+    user_id = request_body["user_id"]
+    planet_id = request_body["planet_id"]
+
+
+    new_favorite_planet = Favorites(user_id=user_id, planet_id=planet_id)
+
+    db.session.add(new_favorite_planet)
+    db.session.commit()
+
+    return 'Favorite planet added successfully'
+
+
+# POST favorite character on user
+@app.route('/favorite/character', methods=['POST'])
+def add_favorite_character():
+
+    request_body = request.get_json()
+    user_id = request_body["user_id"]
+    character_id = request_body["character_id"]
+
+
+    new_favorite_character = Favorites(user_id=user_id, character_id=character_id)
+
+    db.session.add(new_favorite_character)
+    db.session.commit()
+
+    return 'Favorite character added successfully'
+
+
+
+
+
+
+# DELETE a favorite planet on user
+@app.route('/favorite/planet', methods=['DELETE'])
+def delete_favorite_planet():
+
+    request_body = request.get_json()
+    user_id = request_body["user_id"]
+    planet_id = request_body["planet_id"]
+
+    favorite = Favorites.query.filter_by(user_id=user_id, planet_id=planet_id).delete()
+
+    db.session.commit()
+
+    return "Planet deleted successfully", 200
+
+
+# DELETE favorite character on user
+@app.route('/favorite/character', methods=['DELETE'])
+def delete_favorite_character():
+
+    request_body = request.get_json()
+    user_id = request_body["user_id"]
+    character_id = request_body["character_id"]
+
+    favorite = Favorites.query.filter_by(user_id=user_id, character_id=character_id).delete()
+
+    db.session.commit()
+
+    return "Character deleted successfully", 200
+  
+
 
 # this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
